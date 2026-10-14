@@ -1,0 +1,16 @@
+# Ruff 配置：PEP8 / import 顺序 / 常见缺陷检查
+# 使用方式（在 backend/ 目录）：ruff check app tests scripts
+line-length = 110
+target-version = "py311"
+
+[lint]
+select = ["E", "F", "W", "I", "B", "C4"]
+ignore = [
+  # FastAPI 的 Depends() / Query() 依赖注入就是写成默认值的形式，这是官方推荐用法
+  "B008",
+]
+
+[lint.per-file-ignores]
+# 测试与脚本里允许长行（用例名、期望值描述）
+"tests/*" = ["E501"]
+"scripts/*" = ["E501"]

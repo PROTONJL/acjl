@@ -1,0 +1,14 @@
+# 运行环境：Python 3.11+（开发验证使用 3.12）
+fastapi==0.143.0
+uvicorn[standard]==0.54.0
+SQLAlchemy==2.1.4
+PyMySQL==1.2.3
+# MySQL 8 默认使用 caching_sha2_password，PyMySQL 需要 cryptography 支持
+cryptography==50.0.2
+pydantic==2.14.1
+pydantic-settings==2.15.0
+PyJWT==2.15.1
+bcrypt==5.0.0
+# 自测用例（可选安装）
+pytest==9.1.1
+httpx==0.28.1
