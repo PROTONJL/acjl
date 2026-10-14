@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>登录 - 个人记账本</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+  <div id="app" class="auth-page" v-cloak>
+    <div class="card auth-card">
+      <h1>💰 个人记账本</h1>
+      <p class="sub">记录每一笔收支，看清钱的去向</p>
+
+      <div class="tabs">
+        <button :class="{ 'is-active': mode === 'login' }" @click="switchMode('login')">登录</button>
+        <button :class="{ 'is-active': mode === 'register' }" @click="switchMode('register')">注册</button>
+      </div>
+
+      <form @submit.prevent="submit">
+        <div class="form-row">
+          <label class="field__label" for="username">用户名</label>
+          <input id="username" v-model.trim="form.username" autocomplete="username"
+                 placeholder="3-20 位字母、数字或下划线" />
+        </div>
+
+        <div class="form-row">
+          <label class="field__label" for="password">密码</label>
+          <input id="password" v-model="form.password" type="password"
+                 :autocomplete="mode === 'login' ? 'current-password' : 'new-password'"
+                 placeholder="8-20 位，需同时包含字母和数字" />
+        </div>
+
+        <template v-if="mode === 'register'">
+          <div class="form-row">
+            <label class="field__label" for="confirm">确认密码</label>
+            <input id="confirm" v-model="form.confirm" type="password"
+                   autocomplete="new-password" placeholder="请再次输入密码" />
+          </div>
+          <div class="form-row">
+            <label class="field__label" for="nickname">昵称（可选）</label>
+            <input id="nickname" v-model.trim="form.nickname" placeholder="张三" />
+          </div>
+          <div class="form-row">
+            <label class="field__label" for="email">邮箱（可选）</label>
+            <input id="email" v-model.trim="form.email" placeholder="zhangsan@example.com" />
+          </div>
+        </template>
+
+        <p v-if="error" class="error-text">{{ error }}</p>
+
+        <div class="form-actions" style="margin-top: 18px;">
+          <button class="btn" type="submit" :disabled="loading" style="width: 100%;">
+            {{ loading ? '处理中…' : (mode === 'login' ? '登录' : '注册并登录') }}
+          </button>
+        </div>
+      </form>
+
+      <p class="hint" style="margin-top: 14px;">
+        演示账号：demo / Demo1234（执行 <code>python -m app.db.init_db --with-demo</code> 后可用）
+      </p>
+    </div>
+  </div>
+
+  <script src="/static/js/vendor-check.js"></script>
+  <script src="https://unpkg.com/vue@3.5.13/dist/vue.global.prod.js"></script>
+  <script src="/static/js/validate.js"></script>
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/login.js"></script>
+</body>
+</html>

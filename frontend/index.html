@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>个人记账本</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+  <div id="app" v-cloak>
+    <header class="topbar">
+      <div class="topbar__brand"><span>💰</span>个人记账本</div>
+      <div class="topbar__user">
+        <span>{{ user ? (user.nickname || user.username) : '' }}</span>
+        <button class="btn btn--ghost" @click="logout">退出登录</button>
+      </div>
+    </header>
+
+    <main class="container">
+      <!-- 汇总 -->
+      <section class="summary">
+        <div class="card summary__item">
+          <div class="summary__label">总收入</div>
+          <div class="summary__value summary__value--income">¥{{ summary.total_income }}</div>
+        </div>
+        <div class="card summary__item">
+          <div class="summary__label">总支出</div>
+          <div class="summary__value summary__value--expense">¥{{ summary.total_expense }}</div>
+        </div>
+        <div class="card summary__item">
+          <div class="summary__label">结余</div>
+          <div class="summary__value" :class="Number(summary.balance) >= 0 ? 'summary__value--income' : 'summary__value--expense'">
+            ¥{{ summary.balance }}
+          </div>
+        </div>
+      </section>
+
+      <!-- 筛选 -->
+      <section class="card toolbar">
+        <div class="field">
+          <label class="field__label">类型</label>
+          <select v-model="filters.type" @change="applyFilter">
+            <option value="">全部</option>
+            <option value="income">收入</option>
+            <option value="expense">支出</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="field__label">分类</label>
+          <select v-model="filters.category_id" @change="applyFilter">
+            <option value="">全部</option>
+            <option v-for="item in filterCategories" :key="item.id" :value="item.id">
+              {{ item.icon }} {{ item.name }}
+            </option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="field__label">开始日期</label>
+          <input type="date" v-model="filters.start_date" @change="applyFilter" />
+        </div>
+        <div class="field">
+          <label class="field__label">结束日期</label>
+          <input type="date" v-model="filters.end_date" @change="applyFilter" />
+        </div>
+        <div class="field">
+          <label class="field__label">备注关键字</label>
+          <input v-model.trim="filters.keyword" @keyup.enter="applyFilter" placeholder="如：午餐" />
+        </div>
+        <button class="btn btn--ghost" @click="applyFilter">查询</button>
+        <button class="btn btn--ghost" @click="resetFilter">重置</button>
+        <button class="btn" style="margin-left: auto;" @click="openCreate">＋ 记一笔</button>
+      </section>
+
+      <!-- 明细 -->
+      <section class="card">
+        <div v-if="loading" class="empty">加载中…</div>
+        <div v-else-if="!records.length" class="empty">
+          暂无记录，点击右上角「＋ 记一笔」开始记账
+        </div>
+        <div v-else class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 120px;">日期</th>
+                <th style="width: 80px;">类型</th>
+                <th style="width: 140px;">分类</th>
+                <th style="width: 120px;">金额</th>
+                <th>备注</th>
+                <th style="width: 120px;">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="item in records" :key="item.id">
+                <td>{{ item.occurred_at }}</td>
+                <td>
+                  <span class="tag">{{ item.type === 'income' ? '收入' : '支出' }}</span>
+                </td>
+                <td>{{ item.category_icon }} {{ item.category_name }}</td>
+                <td class="amount" :class="item.type === 'income' ? 'amount--income' : 'amount--expense'">
+                  {{ item.type === 'income' ? '+' : '-' }}{{ item.amount }}
+                </td>
+                <td>{{ item.remark || '-' }}</td>
+                <td>
+                  <button class="btn--link" @click="openEdit(item)">编辑</button>
+                  <button class="btn--link is-danger" @click="removeRecord(item)">删除</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="pagination" v-if="pagination.total > 0">
+          <span>共 {{ pagination.total }} 条 / {{ pagination.pages }} 页</span>
+          <button class="btn btn--ghost" :disabled="pagination.page <= 1" @click="changePage(pagination.page - 1)">
+            上一页
+          </button>
+          <span>第 {{ pagination.page }} 页</span>
+          <button class="btn btn--ghost" :disabled="pagination.page >= pagination.pages" @click="changePage(pagination.page + 1)">
+            下一页
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <!-- 新增 / 编辑弹窗 -->
+    <div class="modal-mask" v-if="showForm" @click.self="closeForm">
+      <div class="modal">
+        <h3 class="modal__title">{{ formMode === 'create' ? '记一笔' : '修改记录' }}</h3>
+
+        <div class="form-row">
+          <label class="field__label">类型</label>
+          <select v-model="form.type" @change="onTypeChange">
+            <option value="expense">支出</option>
+            <option value="income">收入</option>
+          </select>
+        </div>
+
+        <div class="form-row">
+          <label class="field__label">金额（正数，最多两位小数）</label>
+          <input v-model="form.amount" inputmode="decimal" placeholder="0.00"
+                 @input="form.amount = sanitizeAmount(form.amount)" />
+        </div>
+
+        <div class="form-row">
+          <label class="field__label">
+            分类
+            <button class="btn--link" type="button" @click="createCategory">＋ 新建分类</button>
+          </label>
+          <select v-model="form.category_id">
+            <option value="" disabled>请选择分类</option>
+            <option v-for="item in formCategories" :key="item.id" :value="item.id">
+              {{ item.icon }} {{ item.name }}
+            </option>
+          </select>
+        </div>
+
+        <div class="form-row">
+          <label class="field__label">日期</label>
+          <input type="date" v-model="form.occurred_at" />
+        </div>
+
+        <div class="form-row">
+          <label class="field__label">备注（可选，最多 255 字）</label>
+          <textarea v-model.trim="form.remark" rows="2" maxlength="255" placeholder="例如：和同事午餐"></textarea>
+        </div>
+
+        <p v-if="formError" class="error-text">{{ formError }}</p>
+
+        <div class="form-actions">
+          <button class="btn btn--ghost" @click="closeForm">取消</button>
+          <button class="btn" :disabled="submitting" @click="submitForm">
+            {{ submitting ? '保存中…' : '保存' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/vendor-check.js"></script>
+  <script src="https://unpkg.com/vue@3.5.13/dist/vue.global.prod.js"></script>
+  <script src="/static/js/validate.js"></script>
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
